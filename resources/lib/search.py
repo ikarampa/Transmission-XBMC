@@ -1,16 +1,18 @@
+# -*- coding: utf-8 -*-
 import sys
 import re
 import socket
 from urllib2 import urlopen, Request, URLError, HTTPError
 from urllib import quote, quote_plus, urlencode
 from BeautifulSoup import BeautifulSoup, BeautifulStoneSoup
+import feedparser
 
 socket.setdefaulttimeout(15)
 
 class Search:
     def __init__(self):
         return NotImplemented
-    def search(terms):
+    def search(self, terms):
         return NotImplemented
 
 class Mininova(Search):
@@ -18,18 +20,17 @@ class Mininova(Search):
         self.search_uri = 'http://www.mininova.org/rss/%s'
     def search(self, terms):
         torrents = []
-        url = self.search_uri % quote_plus(terms)
-        f = urlopen(url)
-        soup = BeautifulStoneSoup(f.read())
-        for item in soup.findAll('item'):
-            (seeds, leechers) = re.findall('Ratio: (\d+) seeds, (\d+) leechers', item.description.text)[0]
-            torrents.append({
-                'url': item.enclosure['url'],
-                'name': item.title.text,
-                'seeds': int(seeds),
-                'leechers': int(leechers),
-            })
+        url = self.search_uri % '+'.join(terms.split(' '))
+        m = feedparser.parse(url)
+        for post in m.entries:
+            (seeds, leechers) = re.findall('Ratio: (\d+) seeds, (\d+) leechers', post.summary)[0]
+            t = {'url':post.links[0]['href'] ,
+                    'name': post['title_detail']['value'].encode('utf-8'),
+                    'seeds': seeds,
+                    'leechers':leechers}
+            torrents.append(t)
         return torrents
+    
 class TPB(Search):
     def __init__(self):
         self.user_agent = 'Mozilla/5.0'
@@ -58,33 +59,28 @@ class TPB(Search):
             leechers = int(td.text)
             torrents.append({
                 'url': url,
-                'name': name,
+                'name': name.encode('utf-8'),
                 'seeds': seeds,
                 'leechers': leechers,
             })
         return torrents
+
 class Kickass(Search):
     def __init__(self):
-        self.search_uri = 'http://kickass.to/usearch/%s/?field=seeders&sorder=desc&rss=1'
+        self.search_uri = 'http://kat.cr/usearch/%s/?field=seeders&sorder=desc&rss=1'
     def search(self, terms):
         torrents = []
-        url = self.search_uri % quote_plus(terms)
-        try:
-            f = urlopen(url)
-            soup = BeautifulStoneSoup(f.read())
-            for item in soup.findAll('item'):
-                torrents.append({
-                    'url': item.enclosure['url'],
-                    'name': item.title.text,
-                    'seeds': int(item.find('torrent:seeds').text),
-                    'leechers': int(item.find('torrent:peers').text),
-                })
-        except HTTPError as e:
-            if e.code == 404:
-                pass
-            else:
-                raise
+        url = self.search_uri % '+'.join(terms.split(' '))
+        f = feedparser.parse(url)
+
+        for post in f.entries:
+            t = {'url': post.links[1]['href'],
+            'name': post['title'].encode('utf-8'),
+            'seeds': post['torrent_seeds'],
+            'leechers': post['torrent_peers']}
+            torrents.append(t)
         return torrents
+    
 class L337x(Search):
     def __init__(self):
         self.uri_prefix = 'http://1337x.to'
@@ -105,7 +101,7 @@ class L337x(Search):
                 continue
             torrents.append({
                 'url': link['href'],
-                'name': details.text,
+                'name': details.text.encode('utf-8'),
                 'seeds': seeds,
                 'leechers': int(div.text),
             })
@@ -130,7 +126,7 @@ class YTS(Search):
             ps = span.parent.contents[ps_pos].split('/')
             torrents.append({
                 'url': item.enclosure['url'],
-                'name': item.title.text,
+                'name': item.title.text.encode('utf-8'),
                 'seeds': int(ps[1]),
                 'leechers': int(ps[0])
             })
@@ -147,7 +143,7 @@ class Lime(Search):
             (seeds, leechers) = re.findall('Seeds: (\d+) , Leechers (\d+)', item.description.text)[0]
             torrents.append({
                 'url': item.enclosure['url'],
-                'name': item.title.text,
+                'name': item.title.text.encode('utf-8'),
                 'seeds': int(seeds),
                 'leechers': int(leechers)
             })
@@ -179,7 +175,7 @@ class EZTV(Search):
                 sp = [0, 0]
             torrents.append({
                 'url': item['href'],
-                'name': info.text,
+                'name': info.text.encode('utf-8'),
                 'seeds': sp[0],
                 'leechers': sp[1]
             })
@@ -187,7 +183,7 @@ class EZTV(Search):
 
 if __name__ == '__main__':
     sites = [Mininova(), TPB(), Kickass(), L337x(), YTS(), Lime(), EZTV()]
-    terms = 'transmission'
+    terms = 'sex'
     if len(sys.argv) > 1:
         terms = sys.argv[1]
     print 'Searching for "' + terms + '"'
@@ -197,6 +193,6 @@ if __name__ == '__main__':
         print 'Total found = ' + str(len(torrents))
         for counter, file in enumerate(torrents):
             print '[{:3},{:3}] {:33} "{:33}"'.format(file['seeds'], file['leechers'],
-                                                     file['name'].encode('ascii', 'replace')[:33],
+                                                     file['name'].decode("ascii", "ignore")[:33],
                                                      file['url'][:33])
             if counter == 9: break
