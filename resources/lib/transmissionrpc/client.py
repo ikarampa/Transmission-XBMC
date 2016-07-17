@@ -19,10 +19,10 @@ from six import PY3, integer_types, string_types, iteritems
 
 if PY3:
     from urllib.parse import urlparse
-    from urllib.request import urlopen
+    from urllib.request import urlopen,build_opener
 else:
     from urlparse import urlparse
-    from urllib2 import urlopen
+    from urllib2 import urlopen,build_opener
 
 def debug_httperror(error):
     """
@@ -377,7 +377,12 @@ class Client(object):
         if parsed_uri.scheme in ['ftp', 'ftps', 'http', 'https']:
             # there has been some problem with T's built in torrent fetcher,
             # use a python one instead
-            torrent_file = urlopen(torrent)
+            user_agent = 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
+            headers = { 'User-Agent' : user_agent }
+            opener = build_opener()
+            opener.addheaders = headers.items()
+            torrent_file = opener.open(torrent)
+               
             if torrent_file.info().get('Content-Encoding') == 'gzip':
                 buf = BytesIO(torrent_file.read())
                 gzip_file = GzipFile(fileobj=buf)
