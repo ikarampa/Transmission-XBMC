@@ -111,15 +111,20 @@ class TransmissionGUI(xbmcgui.WindowXMLDialog):
             # Add torrent
             engines = [
                 (_(32200), None),
-                (_(32202), search.TPB),
+#                 (_(32202), search.TPB),
                 (_(32203), search.Mininova),
                 (_(32204), search.Kickass),
                 (_(32205), search.L337x),
-                (_(32206), search.YTS),
-                (_(32207), search.Lime),
-                (_(32208), search.EZTV),
+#                 (_(32206), search.YTS),
+#                 (_(32207), search.Lime),
+#                 (_(32208), search.EZTV),
+#                 ("Search L337x", search.L337x),
+#                 ("Search YTS", search.YTS),
+#                 ("Search Lime", search.Lime),
+#                 ("Search EZTV", search.EZTV),
             ]
-            selected = xbmcgui.Dialog().select(_(32000), [i[0] for i in engines])
+            engine_selection=[i[0] for i in engines]
+            selected = xbmcgui.Dialog().select(_(32000), engine_selection)
             if selected < 0:
                 return
             engine = engines[selected][1]
@@ -149,7 +154,17 @@ class TransmissionGUI(xbmcgui.WindowXMLDialog):
                 if not results:
                     xbmcgui.Dialog().ok(_(32000), _(32291))
                     return
-                selected = xbmcgui.Dialog().select(_(32000), ['[S:%d L:%d] %s' % (t['seeds'], t['leechers'], t['name']) for t in results])
+                
+                selection=[]
+                for t in results:
+                    try:
+                        selection.append('S:{seeds} L:{leechers} {name}'.format(**t))
+                    except Exception,e:
+                        t['name']=t['name'].decode("ascii", "ignore")
+                        selection.append('S:{seeds} L:{leechers} {name}'.format(**t))
+                        print e
+                
+                selected = xbmcgui.Dialog().select(_(32000),selection)
                 if selected < 0:
                     return
                 try:
